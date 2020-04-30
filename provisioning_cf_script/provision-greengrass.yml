@@ -1,0 +1,123 @@
+# ##################################################
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
+# Permission is hereby granted, free of charge, to any person obtaining a copy of
+# this software and associated documentation files (the "Software"), to deal in
+# the Software without restriction, including without limitation the rights to
+# use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+# the Software, and to permit persons to whom the Software is furnished to do so.
+# ##################################################
+
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Greengrass Deepstream Integration Template"
+Transform: AWS::Serverless-2016-10-31
+
+Description: Create Greengrass resources for a AWS Secure Transport tariler
+
+Parameters:
+  CoreName:
+    Description: Green Core name to be created. A "Thing" with be created with _core appended to the name
+    Type: String
+    Default: DeepstreamGreengrassGroup
+  DeepstreamAppThingName:
+    Description: DeepstreamApp name to be created. A "Thing" with be created under greengrass group
+    Type: String
+    Default: DeepstreamApp
+  S3BucketName:
+    Description: S3 bucket name to put generated certificates
+    Type: String
+
+Resources:
+  DeepstreamAppThing:
+    # Resource creates thing, certificate key pair, and IoT policy
+    Type: Custom::DeepstreamAppThing
+    Properties:
+      ServiceToken: !GetAtt CreateThingFunction.Arn
+      ThingName: !Ref DeepstreamAppThingName
+  GGCore:
+    # Resource creates thing, certificate key pair, and IoT policy
+    Type: Custom::GGCore
+    Properties:
+      ServiceToken: !GetAtt CreateThingFunction.Arn
+      ThingName: !Join ["_", [!Ref CoreName, "core"] ]
+      Region: !Ref "AWS::Region"
+  CreateThingFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Description: Create thing, certificate, and policy, return cert and private key
+      Handler: greengrass_creation_cust_resource_lambda.handler
+      Runtime: python3.6
+      Environment:
+        Variables:
+          S3BUCKETNAME: !Ref S3BucketName
+      Role: !GetAtt CFNHelperLambdaExecutionRole.Arn
+      Timeout: 60
+      CodeUri: greengrass_creation_cust_resource_lambda/
+  CFNHelperLambdaExecutionRole:
+    # Role used by CloudFormation created Lambda functions, used by the custom
+    # resource functions to perform their objectives.
+    # Overly permissive for iot:* and greengrass:* to reduce Statement complexity
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+      - PolicyName: root
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource: arn:aws:logs:*:*:*
+          - Effect: Allow
+            Action:
+            - iot:*
+            Resource: "*"
+          - Effect: Allow
+            Action:
+            - s3:*
+            Resource: !Sub "arn:aws:s3:::${S3BucketName}"
+          - Effect: Allow
+            Action:
+            - greengrass:*
+            Resource: "*"
+          - Effect: Allow
+            Action:
+            - iam:CreateRole
+            - iam:AttachRolePolicy
+            - iam:GetRole
+            - iam:DeleteRole
+            - iam:PassRole
+            Resource: !Join ["", ["arn:aws:iam::", !Ref "AWS::AccountId", ":role/greengrass_cfn_", !Ref "AWS::StackName", "_ServiceRole"] ]
+Outputs:
+  DeepstreamAppThingCertificateArn:
+    Description: DeepstreamAppThing-certificateArn
+    Value:  !GetAtt DeepstreamAppThing.certificateArn
+    Export:
+      Name: DeepstreamAppThingCertificateArn
+
+  DeepstreamAppThingThingArn:
+    Description: DeepstreamAppThing-thingArn
+    Value:  !GetAtt DeepstreamAppThing.thingArn
+    Export:
+      Name: DeepstreamAppThingThingArn
+
+  GGCoreCertificateId:
+    Description: GGCore-certificateId
+    Value:  !GetAtt GGCore.certificateId
+    Export:
+      Name: GGCoreCertificateId
+
+  GGCoreThingArn:
+    Description: GGCore-thingArn
+    Value:  !GetAtt GGCore.thingArn
+    Export:
+      Name: GGCoreThingArn

@@ -1,0 +1,257 @@
+# ##################################################
+# Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
+# Permission is hereby granted, free of charge, to any person obtaining a copy of
+# this software and associated documentation files (the "Software"), to deal in
+# the Software without restriction, including without limitation the rights to
+# use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+# the Software, and to permit persons to whom the Software is furnished to do so.
+# ##################################################
+
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Greengrass Deepstream Integration Template"
+Transform: AWS::Serverless-2016-10-31
+
+Description: Create Greengrass resources for a AWS Secure Transport tariler
+
+Parameters:
+  CoreName:
+    Description: Greengrass Core name to be created. A "Thing" with be created with _core appended to the name
+    Type: String
+    Default: DeepstreamGreengrassGroup
+  S3BucketName:
+    Description: S3 bucket name to put generated certificates
+    Type: String
+  MLResourceName:
+    Description: ML resource zip file name
+    Type: String
+  DeepstreamAppThingName:
+    Description: DeepstreamApp name to be created. A "Thing" with be created under greengrass group
+    Type: String
+    Default: DeepstreamApp
+
+Resources:
+  GreengrassGroup:
+    Type: AWS::Greengrass::Group
+    Properties:
+      Name: !Ref CoreName
+      RoleArn: !GetAtt GreengrassResourceRole.Arn
+      InitialVersion:
+        CoreDefinitionVersionArn: !Ref GreengrassCoreDefinitionVersion
+        FunctionDefinitionVersionArn: !GetAtt FunctionDefinition.LatestVersionArn
+        SubscriptionDefinitionVersionArn: !GetAtt SubscriptionDefinition.LatestVersionArn
+        LoggerDefinitionVersionArn: !GetAtt LoggerDefinition.LatestVersionArn
+        DeviceDefinitionVersionArn: !GetAtt DeviceDefinition.LatestVersionArn
+        ResourceDefinitionVersionArn: !GetAtt ResourceDefinition.LatestVersionArn
+  GreengrassCoreDefinition:
+    Type: AWS::Greengrass::CoreDefinition
+    Properties:
+      # GG Core = CoreName + "_core" as the "thingName"
+      Name: !Join ["_", [!Ref CoreName, "core"] ]
+  GreengrassCoreDefinitionVersion:
+    Type: AWS::Greengrass::CoreDefinitionVersion
+    Properties:
+      CoreDefinitionId: !Ref GreengrassCoreDefinition
+      Cores:
+        - Id: !Join ["_", [!Ref CoreName, "core"] ]
+          ThingArn: !Join
+                      - ":"
+                      - - "arn:aws:iot"
+                        - !Ref AWS::Region
+                        - !Ref AWS::AccountId
+                        - !Join
+                          - "/"
+                          - - "thing"
+                            - !Join ["_", [!Ref CoreName, "core"] ]
+          CertificateArn: !Join
+                            - ":"
+                            - - "arn:aws:iot"
+                              - !Ref AWS::Region
+                              - !Ref AWS::AccountId
+                              - !Join
+                                - "/"
+                                - - "cert"
+                                  - Fn::ImportValue: "GGCoreCertificateId"
+          SyncShadow: "true"
+  DeepstreamAppLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+              - lambda.amazonaws.com
+            Action:
+            - sts:AssumeRole
+      Path: "/"
+      Policies:
+        - PolicyName: AggregationLambdaLogging
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutDestination
+                  - logs:PutLogEvents
+                Resource:
+                  !Join
+                    - ''
+                    - - 'arn:aws:logs:'
+                      - !Ref AWS::Region
+                      - ':'
+                      - !Ref AWS::AccountId
+                      - ':log-group:*'
+
+  DeepstreamAppLambda:
+    Type: 'AWS::Serverless::Function' # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: jetson_app_deploy_with_iot/
+      AutoPublishAlias: test
+      Handler: jetson_app_deploy.function_handler
+      Runtime: python2.7
+      Description: Lambda that runs Deepstream App within as a subprocess
+      MemorySize: 2048
+      Role: !GetAtt DeepstreamAppLambdaRole.Arn
+      Timeout: 900
+
+ 
+  FunctionDefinition:
+    Type: AWS::Greengrass::FunctionDefinition
+    Properties:
+      Name: FunctionDefinition
+      InitialVersion:
+        DefaultConfig:
+          Execution:
+            IsolationMode: NoContainer
+        Functions:
+          - Id: !Join ["_", [!Ref CoreName, "DeepstreamAppLambda"] ]
+            FunctionArn: !Join [":", [!GetAtt DeepstreamAppLambda.Arn, "test"] ]
+            FunctionConfiguration:
+              Pinned: 'true'
+              Executable: jetson_app_deploy.py
+              Timeout: 30000
+              EncodingType: json
+              Environment:
+                Execution:
+                  IsolationMode: NoContainer
+                ResourceAccessPolicies:
+                  - ResourceId: !Join ["_", [!Ref CoreName, "DeepstreamMLModel"] ]
+
+  DeviceDefinition:
+    Type: AWS::Greengrass::DeviceDefinition
+    Properties: 
+      InitialVersion: 
+        Devices:
+          - CertificateArn: 
+              Fn::ImportValue: "DeepstreamAppThingCertificateArn"
+            SyncShadow: "true"
+            Id: !Join ["_", [!Ref CoreName, "DeepstreamApp"] ]
+            ThingArn: 
+              Fn::ImportValue: "DeepstreamAppThingThingArn"
+      Name: deepstream-app-device-definition
+
+  ResourceDefinition:
+    Type: AWS::Greengrass::ResourceDefinition
+    Properties: 
+      InitialVersion: 
+        Resources:
+          - Name: "resnet-10-model"
+            Id: !Join ["_", [!Ref CoreName, "DeepstreamMLModel"] ]
+            ResourceDataContainer: 
+              S3MachineLearningModelResourceData:
+                DestinationPath: "/resnet_10_model/"
+                S3Uri: !Sub 's3://${S3BucketName}/ml_resource/${MLResourceName}'
+                OwnerSetting: 
+                    GroupOwner: "1001"
+                    GroupPermission: "rw"
+      Name: deepstream-model-resource-definition
+
+
+  LoggerDefinition:
+    Type: 'AWS::Greengrass::LoggerDefinition'
+    Properties:
+      Name: LoggerDefinition
+      InitialVersion:
+        Loggers:
+          - Component: GreengrassSystem
+            Id: !Join
+                  - "-"
+                  - - !Ref CoreName
+                    - "1"
+            Level: DEBUG
+            Space: 25600
+            Type: FileSystem
+          - Component: GreengrassSystem
+            Id: !Join
+                  - "-"
+                  - - !Ref CoreName
+                    - "2"
+            Level: DEBUG
+            Type: AWSCloudWatch
+          - Component: Lambda
+            Id: !Join
+                  - "-"
+                  - - !Ref CoreName
+                    - "3"
+            Level: DEBUG
+            Space: 25600
+            Type: FileSystem
+          - Component: Lambda
+            Id: !Join
+                  - "-"
+                  - - !Ref CoreName
+                    - "4"
+            Level: DEBUG
+            Type: AWSCloudWatch
+  
+  SubscriptionDefinition:
+    Type: 'AWS::Greengrass::SubscriptionDefinition'
+    Properties:
+      Name: SubscriptionDefinition
+      InitialVersion:
+        Subscriptions:
+          - Id: DeepstreamNotifyGreengrass
+            Source: 'cloud'
+            Subject: "#"
+            Target: 
+              Fn::ImportValue: "DeepstreamAppThingThingArn"
+          - Id: DeepstreamNotifyCloud
+            Source: 
+              Fn::ImportValue: "DeepstreamAppThingThingArn"
+            Subject: "#"
+            Target: 'cloud'
+          - Id: DeepstreamLambdaNotifyCloud
+            Source: 
+              !Join [":", [!GetAtt DeepstreamAppLambda.Arn, "test"] ]
+            Subject: "#"
+            Target: 'cloud'
+  GreengrassResourceRole:
+    # Role for deployed Lambda functions to a Greengrass core to call other AWS services directly
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: greengrass.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+      - PolicyName: root
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource: arn:aws:logs:*:*:*
+          - Effect: Allow
+            Action:
+            - iot:*
+            Resource: "*"
