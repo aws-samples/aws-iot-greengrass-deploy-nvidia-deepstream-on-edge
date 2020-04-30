@@ -1,5 +1,5 @@
 ## AWS IoT Greengrass Deploying NVIDIA DeepStream on Edge
-This is the cloudformation package to demonstrate Machine Learning model deployment at scale with AWS Greengrass on NVIDIA Jetson Devices. This demonstrates consists three parts:
+This is the cloudformation package to demonstrate Machine Learning model deployment at scale with AWS Greengrass on NVIDIA Jetson Devices. This demonstrates consists four parts:
 1. Create IoT Things and attach certificates for Greengrass core thing and DeepStream app thing, which will later be attached to this Greengrass group
 2. Simulate a DeepStream package to be deployed by Greengrass
 3. Create a Greengrass core with modules attached on AWS Cloud
@@ -133,16 +133,15 @@ And then pick up from where you experienced error in the previous commands and t
 ### Step 9: Understand YAML script for cloudformation
 The major function for this script is to create a greengrass group. And to this greengrass group, we attach 6 modules:
 - Greengrass Core: a thing with certificates that helps this Greengrass group to connect to cloud MQTT server securely
-- Local Lambda function: we use this lambda function to run Deepstream within as a subprocess. We make this function long-live, and run in no-container mode.
-- Greengrass Device: this is a separated thing with a different set of certs other than Greengrass Core. This set of certs is directly granted to Deepsteam app, so that Deepstream app can make secure connection with Greengrass Core, which is a local MQTT server
-- Greengrass MachineLearning Resource: in this case, this resource is the resnet-10 model we uploaded in S3 in our deploy.sh file. It could also be coming directly from Sagemaker, or uploaded to S3 from other sources.
+- Local Lambda function: we use this lambda function to run Deepstream within as a subprocess. We make this function long-live, and run Greengrass container mode.
+- Greengrass Device: this is a separated thing with a different set of certs other than Greengrass Core. This set of certs is directly granted to Deepsteam app, so that Deepstream app can make secure connection with Greengrass Core, which is a local MQTT server. Please refer to "Extra Note" section for more information on this.
+- Greengrass MachineLearning Resource: in this case, this resource is the resnet-10 model we uploaded in S3 manually. It could also be coming directly from Sagemaker, or uploaded to S3 from other sources.
+- Other Greengrass Resource: we want to make sure the Greengrass container has all the hardware access within /dev/ repo on Jetson device to run this DeepStream app. The required resource might be different for applications, we need to make sure all of them are attached to the container. Otherwise, it would lead to inference failures.
 - Greengrass Subscriptions: we configure command messages to be published by cloud and subscribed by Deepstream app. And we configure performance update messages to be published from Deepstream app and subsribed by cloud. We can theoretically configure any publisher or subscribers based on our need, as long as they have the right credentials to communicate with MQTT server.
 
 This link posts more detailed information on this set-up: https://aws.amazon.com/blogs/iot/automating-aws-iot-greengrass-setup-with-aws-cloudformation/
 
 ### Step 10: Install Greengrass Python SDK in local lambda function
-For this demonstration, we are using sample DeepStream App developed by NVIDIA in their DeepStream. Within the Lambda function to be deployed, there is a compiled executable of sample DeepStream App and its config file. Within the config file, make sure you configure the source and sink correctly, so it can run on your Jetson device smoothly.
-
 In order to use Greengrass lambda function successfully, you also need to git clone the Greengrass SDK in your local Lambda function.
 ```
 cd $GG_DEPLOYMENT_HOME
@@ -176,6 +175,19 @@ You should now have all the resources needed to run DeepStream Greengrass, so we
 cd /greengrass/ggc/core
 ./greengrass start
 ```
+### Part 4 troubleshooting
+If your inference results are not outputed correctly, you can read Greengrass runtime logs to figure out why. Please navigate, on your Jetson device, to the following directory:
+```
+sudo su
+cd /greengrass/ggc/var/log/
+```
+For Greengrass system logs, you can read log fils in the system folder. For example, "/greengrass/ggc/var/log/system/GGConnManager.log" contains all the messsages Greengrass had received or sent as MQTT broker. "/greengrass/ggc/var/log/system/runtime.log" shows generic Greengrass operation logs.
+
+For Lambda function specific logs, you can locate them in
+```
+/greengrass/ggc/var/log/user/us-west-2/xxxxxxxxxx
+```
+where xxxxxxxxxx is you AWS account number. All of the DeepStream operations logs should also be in this folder.
 
 ### Extra Note: Run DeepStream IoT Test Applications (test 4 or test 5)
 In this application, we also created a seperate set of certificates and a corresponding thing for DeepStream app to authenticate with both AWS IoT Core and this Greengrass group. In order to use AWS specific msg-broker in DeepStream, you need to follow this GitHub (but skip provisioning process, because certificates have already been created for you):
