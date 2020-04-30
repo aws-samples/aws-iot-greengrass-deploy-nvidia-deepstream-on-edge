@@ -18,11 +18,11 @@ Parameters:
   CoreName:
     Description: Green Core name to be created. A "Thing" with be created with _core appended to the name
     Type: String
-    Default: DeepstreamGreengrassGroup
+    Default: greengrass-core
   DeepstreamAppThingName:
     Description: DeepstreamApp name to be created. A "Thing" with be created under greengrass group
     Type: String
-    Default: DeepstreamApp
+    Default: greengrass-deepstream-app
   S3BucketName:
     Description: S3 bucket name to put generated certificates
     Type: String
@@ -39,7 +39,7 @@ Resources:
     Type: Custom::GGCore
     Properties:
       ServiceToken: !GetAtt CreateThingFunction.Arn
-      ThingName: !Join ["_", [!Ref CoreName, "core"] ]
+      ThingName: !Ref CoreName
       Region: !Ref "AWS::Region"
   CreateThingFunction:
     Type: AWS::Serverless::Function
@@ -84,7 +84,7 @@ Resources:
           - Effect: Allow
             Action:
             - s3:*
-            Resource: !Sub "arn:aws:s3:::${S3BucketName}"
+            Resource: "*" #!Sub arn:aws:s3:::${S3BucketName}
           - Effect: Allow
             Action:
             - greengrass:*

@@ -41,7 +41,7 @@ if [ -z "$bucketstatus" ]
 then
 	echo "Bucket exists: $S3_BUCKET, using existing bucket."
 else
-	echo "Bucket does not exist, creating new bucket.";
+	echo "Bucket does not exist, creating new bucket."
 	aws s3api create-bucket --bucket "$S3_BUCKET" --create-bucket-configuration LocationConstraint="$AWS_REGION" $AWS_ARGS;  
 fi
 
@@ -63,18 +63,22 @@ then
 		--template-file ./provision-packaged.yaml \
 		--stack-name $GGDP_PROV_STACK_NAME \
 		--parameter-overrides \
-			CoreName=$GG_THING_GROUP_NAME \
-			DeepstreamAppThingName=$DP_THING_GROUP_NAME \
-			S3BucketName=$S3_BUCKET \
+			ParameterKey=CoreName,ParameterValue=$GG_THING_GROUP_NAME \
+			ParameterKey=DeepstreamAppThingName,ParameterValue=$DS_THING_GROUP_NAME \
+			ParameterKey=S3BucketName,ParameterValue=$S3_BUCKET \
 		--capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND $AWS_ARGS
 else
 	echo "The thing name already exist, please modify deploy.env, source it, and try this script again."
 fi
 
-#generate pre-signed S3 links to download certificates
-echo $(aws s3 presign s3://$S3_BUCKET/$GG_THING_GROUP_NAME/certs/certificatePem.cert.pem --expires-in 86400 $AWS_ARGS) > ../output.txt
-echo $(aws s3 presign s3://$S3_BUCKET/$GG_THING_GROUP_NAME/certs/privateKey.private.key --expires-in 86400 $AWS_ARGS) >> ../output.txt
-echo $(aws s3 presign s3://$S3_BUCKET/$GG_THING_GROUP_NAME/config/config.json --expires-in 86400 $AWS_ARGS) >> ../output.txt
+# generate pre-signed S3 links to download certificates for Greengrass
+echo sudo wget -O /greengrass/certs/certificatePem.cert.pem \"$(aws s3 presign s3://$S3_BUCKET/$GG_THING_GROUP_NAME/certs/certificatePem.cert.pem --expires-in 604800 $AWS_ARGS)\" >> ../formation_cf_script/install_greengrass.sh
+echo sudo wget -O /greengrass/certs/privateKey.private.key \"$(aws s3 presign s3://$S3_BUCKET/$GG_THING_GROUP_NAME/certs/privateKey.private.key --expires-in 604800 $AWS_ARGS)\" >> ../formation_cf_script/install_greengrass.sh
+echo sudo wget -O /greengrass/config/config.json \"$(aws s3 presign s3://$S3_BUCKET/$GG_THING_GROUP_NAME/config/config.json --expires-in 604800 $AWS_ARGS)\" >> ../formation_cf_script/install_greengrass.sh
 
-echo $(aws s3 presign s3://$S3_BUCKET/$DS_THING_GROUP_NAME/certs/certificatePem.cert.pem --expires-in 86400 $AWS_ARGS) >> ../output.txt
-echo $(aws s3 presign s3://$S3_BUCKET/$DS_THING_GROUP_NAME/certs/privateKey.private.key --expires-in 86400 $AWS_ARGS) >> ../output.txt
+# Certs generated for DeepStream app to connect to IoT or Greengrass
+echo sudo wget -O /greengrass/certs/certificatePem.cert.pem \"$(aws s3 presign s3://$S3_BUCKET/$DS_THING_GROUP_NAME/certs/certificatePem.cert.pem --expires-in 604800 $AWS_ARGS)\" > ../output.txt
+echo sudo wget -O /greengrass/certs/privateKey.private.key \"$(aws s3 presign s3://$S3_BUCKET/$DS_THING_GROUP_NAME/certs/privateKey.private.key --expires-in 604800 $AWS_ARGS)\" >> ../output.txt
+
+# Environmental variable
+echo S3_BUCKET=\"$S3_BUCKET\" >> ../deploy.env

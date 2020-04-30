@@ -101,7 +101,8 @@ def handler(event, context):
     "runtime" : {{
     "cgroup" : {{
         "useSystemd" : "yes"
-    }}
+    }},
+    "allowFunctionsToRunAsRoot" : "yes"
     }},
     "managedRespawn" : false,
     "crypto" : {{
