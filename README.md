@@ -5,7 +5,7 @@ This is the cloudformation package to demonstrate Machine Learning model deploym
 3. Create a Greengrass core with modules attached on AWS Cloud
 4. Deploy Greengrass on edge device and run DeepStream App
 Please follow the steps below to go through the Cloudformation Example:
-=============
+
 ## Pre-requisites
 1. Be an AWS account admin user
 2. Jetson device (this should work for all of the devices in Jetson family) and its sudo access
@@ -13,23 +13,22 @@ Please follow the steps below to go through the Cloudformation Example:
    - To install AWS CLI: https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html
    - To install AWS SAM CLI: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html
 
-=============
 
 ## Part 1: Create things on AWS IoT
 ### Step 1: Configure environment
 If you have not done so, configure your AWS CLI with a profile linked to your account.
 ```
-	aws configure --profile ANY_NAME_YOU_LIKE
+aws configure --profile ANY_NAME_YOU_LIKE
 ```
 After you have your profile ready, please edit deploy.env file to replace my_test_account to ANY_NAME_YOU_LIKE. You can also edit AWS_REGION and ENVIRONMENT.
 
 Run the following command after you have modified deploy.env with your aws profile name:
 ```
-	source deploy.env
+source deploy.env
 ```
 Then, we are going to use the contents in provisioning_cf_script folder.
 ```
-	cd provisioning_cf_script
+cd provisioning_cf_script
 ```
 
 ### Step 2: Understand deploy.sh script
@@ -48,12 +47,11 @@ And provision them with IoT certificates. Then download certificates to the desi
 ### Step 4:
 Run the provisioning script:
 ```
-	. deploy.sh
+. deploy.sh
 ```
 After this, an output.txt file should be generated in this folder. Just leave it there.
 You can also navigate to AWS console, and see things just created in Manage -> Things.
 
-=============
 
 ## Part 2: Simulate a deployment package
 ### Step 5: Upload trained ML model to an S3 bucket
@@ -130,7 +128,6 @@ If you are experiencing error, it is likely that you have switched your terminal
 source ./deploy.env
 ```
 And then pick up from where you experienced error in the previous commands and try again.
-=============
 
 ## Part 3: Create Greengrass Group on AWS Cloud
 ### Step 9: Understand YAML script for cloudformation
@@ -148,22 +145,21 @@ For this demonstration, we are using sample DeepStream App developed by NVIDIA i
 
 In order to use Greengrass lambda function successfully, you also need to git clone the Greengrass SDK in your local Lambda function.
 ```
-	cd $GG_DEPLOYMENT_HOME
-	git clone https://github.com/aws/aws-greengrass-core-sdk-python.git
-	cp -r aws-greengrass-core-sdk-python/greengrasssdk $GG_DEPLOYMENT_HOME/formation_cf_script/lambda_deepstream_app
+cd $GG_DEPLOYMENT_HOME
+git clone https://github.com/aws/aws-greengrass-core-sdk-python.git
+cp -r aws-greengrass-core-sdk-python/greengrasssdk $GG_DEPLOYMENT_HOME/formation_cf_script/lambda_deepstream_app
 ```
 
 ### Step 11: Form Greengrass group with Cloudformation template
 Run the scripts:
 ```
-	. deploy.sh
+. deploy.sh
 ```
 After script runs successfully, you should be able to observe on AWS console a Greengrass group ready to be deployed. And you can click from AWS console to do a deployment on the right uppper corner.
 
 ### Part 3 Troubleshooting
 If the deployment status shows and yellow label and says "pending", that means the Greengrass group has been successfully created. Otherwise, please click on the deployment failure entry and read the error log.
 
-=============
 
 ## Part 4: Install and Start Greengrass on local Jetson device
 ### Step 12: Set up device
@@ -180,7 +176,6 @@ You should now have all the resources needed to run DeepStream Greengrass, so we
 cd /greengrass/ggc/core
 ./greengrass start
 ```
-=============
 
 ### Extra Note: Run DeepStream IoT Test Applications (test 4 or test 5)
 In this application, we also created a seperate set of certificates and a corresponding thing for DeepStream app to authenticate with both AWS IoT Core and this Greengrass group. In order to use AWS specific msg-broker in DeepStream, you need to follow this GitHub (but skip provisioning process, because certificates have already been created for you):
