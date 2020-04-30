@@ -59,7 +59,6 @@ else
 	GGDP_STACK_NAME="greengrass-deepstream-$AWS_ACCOUNT_ID-$AWS_REGION-${ENVIRONMENT}-stack"
 	echo "Deploying Greengrass Stack env: $ENVIRONMENT, s3: $S3_BUCKET, greengrass-deepstream-stack: $GGDP_STACK_NAME with $AWS_ARGS"
 
-	echo "Creating GG and GGDS things"
 	sam package \
 		--template-file ./form-greengrass_modules.yml \
 		--s3-bucket $S3_BUCKET \
@@ -68,9 +67,8 @@ else
 		--template-file ./form-greengrass_modules-packaged.yaml \
 		--stack-name $GGDP_STACK_NAME \
 		--parameter-overrides \
-			CoreName=$GG_THING_GROUP_NAME \
-			DeepstreamAppThingName=$DP_THING_GROUP_NAME \
-			S3BucketName=$S3_BUCKET \
-			MLResourceName=$ML_RESOURCE_NAME \
+			ParameterKey=CoreName,ParameterValue=$GG_THING_GROUP_NAME \
+			ParameterKey=S3BucketName,ParameterValue=$S3_BUCKET \
+			ParameterKey=MLResourceName,ParameterValue=$ML_RESOURCE_NAME \
 		--capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND $AWS_ARGS
 fi

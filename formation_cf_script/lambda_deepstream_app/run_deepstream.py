@@ -28,35 +28,25 @@ client = greengrasssdk.client('iot-data')
 
 # Retrieving platform information to send from Greengrass Core
 my_platform = platform.platform()
-
-resourcePath = os.getenv("AWS_GG_RESOURCE_PREFIX") + "/resnet_10_model"
-
-print("resourcePath")
-print(resourcePath)
-
 def send_heart_beat():
     client.publish(
         topic='greengrass-deepstream-app/heartbeat',
         payload='Heart beat signal sent from '
-                'Greengrass Core running on platform: {}, ml resource at: {}'
-                .format(my_platform, resourcePath))
+                'Greengrass Core running on platform: {}'
+                .format(my_platform))
     Timer(60, send_heart_beat).start()
     return
 
 
 def jetson_deepstream_run():
     send_heart_beat()
-    bash_command = "sudo sed 's|ML_RESOURCE_PATH_PLACEHOLDER|"+resourcePath+"|g' config_infer_primary_nano_original.txt | sudo tee config_infer_primary_nano.txt"
-    process = subprocess.Popen(bash_command,shell=True, stdout=subprocess.PIPE)
-    bash_command = "sudo ./deepstream-app -c source8_1080p_dec_infer-resnet_tracker_tiled_display_fp16_nano.txt"
+    bash_command = "./deepstream-app -c ./source1_usb_dec_infer_resnet_int8.txt"
     process = subprocess.Popen(bash_command.split(), stdout=subprocess.PIPE)
     output, error = process.communicate()
     print(output, error)
 
-
 # Start executing the function above
 jetson_deepstream_run()
-
 
 # This is a dummy handler and will not be invoked
 # Instead the code above will be executed in an infinite loop for our example

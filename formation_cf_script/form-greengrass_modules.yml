@@ -25,10 +25,6 @@ Parameters:
   MLResourceName:
     Description: ML resource zip file name
     Type: String
-  DeepstreamAppThingName:
-    Description: DeepstreamApp name to be created. A "Thing" with be created under greengrass group
-    Type: String
-    Default: DeepstreamApp
 
 Resources:
   GreengrassGroup:
@@ -47,13 +43,13 @@ Resources:
     Type: AWS::Greengrass::CoreDefinition
     Properties:
       # GG Core = CoreName + "_core" as the "thingName"
-      Name: !Join ["_", [!Ref CoreName, "core"] ]
+      Name: !Ref CoreName
   GreengrassCoreDefinitionVersion:
     Type: AWS::Greengrass::CoreDefinitionVersion
     Properties:
       CoreDefinitionId: !Ref GreengrassCoreDefinition
       Cores:
-        - Id: !Join ["_", [!Ref CoreName, "core"] ]
+        - Id: !Ref CoreName
           ThingArn: !Join
                       - ":"
                       - - "arn:aws:iot"
@@ -62,7 +58,7 @@ Resources:
                         - !Join
                           - "/"
                           - - "thing"
-                            - !Join ["_", [!Ref CoreName, "core"] ]
+                            - !Ref CoreName
           CertificateArn: !Join
                             - ":"
                             - - "arn:aws:iot"
@@ -109,9 +105,9 @@ Resources:
   DeepstreamAppLambda:
     Type: 'AWS::Serverless::Function' # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
     Properties:
-      CodeUri: jetson_app_deploy_with_iot/
+      CodeUri: lambda_deepstream_app/
       AutoPublishAlias: test
-      Handler: jetson_app_deploy.function_handler
+      Handler: run_deepstream.function_handler
       Runtime: python2.7
       Description: Lambda that runs Deepstream App within as a subprocess
       MemorySize: 2048
@@ -126,20 +122,49 @@ Resources:
       InitialVersion:
         DefaultConfig:
           Execution:
-            IsolationMode: NoContainer
+            IsolationMode: GreengrassContainer
         Functions:
           - Id: !Join ["_", [!Ref CoreName, "DeepstreamAppLambda"] ]
             FunctionArn: !Join [":", [!GetAtt DeepstreamAppLambda.Arn, "test"] ]
             FunctionConfiguration:
               Pinned: 'true'
-              Executable: jetson_app_deploy.py
-              Timeout: 30000
-              EncodingType: json
+              Timeout: '300'
+              MemorySize: '10000000'
+              EncodingType: 'json'
               Environment:
+                AccessSysfs: 'true'
                 Execution:
-                  IsolationMode: NoContainer
+                  IsolationMode: GreengrassContainer
+                  RunAs:
+                    Uid: '0'
+                    Gid: '0'
                 ResourceAccessPolicies:
-                  - ResourceId: !Join ["_", [!Ref CoreName, "DeepstreamMLModel"] ]
+                  - ResourceId: MLModel
+                    Permission: rw
+                  - ResourceId: ResourceId2
+                    Permission: rw
+                  - ResourceId: ResourceId3
+                    Permission: rw
+                  - ResourceId: ResourceId4
+                    Permission: rw
+                  - ResourceId: ResourceId5
+                    Permission: rw
+                  - ResourceId: ResourceId6
+                    Permission: rw
+                  - ResourceId: ResourceId7
+                    Permission: rw
+                  - ResourceId: ResourceId8
+                    Permission: rw
+                  - ResourceId: ResourceId9
+                    Permission: rw
+                  - ResourceId: ResourceId10
+                    Permission: rw
+                  - ResourceId: ResourceId11
+                    Permission: rw
+                  - ResourceId: ResourceId12
+                    Permission: rw
+                  - ResourceId: ResourceId13
+                    Permission: rw
 
   DeviceDefinition:
     Type: AWS::Greengrass::DeviceDefinition
@@ -154,22 +179,79 @@ Resources:
               Fn::ImportValue: "DeepstreamAppThingThingArn"
       Name: deepstream-app-device-definition
 
+
   ResourceDefinition:
-    Type: AWS::Greengrass::ResourceDefinition
-    Properties: 
-      InitialVersion: 
+    Type: 'AWS::Greengrass::ResourceDefinition'
+    Properties:
+      Name: deepstream-model-resource-definition
+      InitialVersion:
         Resources:
           - Name: "resnet-10-model"
-            Id: !Join ["_", [!Ref CoreName, "DeepstreamMLModel"] ]
+            Id: MLModel
             ResourceDataContainer: 
               S3MachineLearningModelResourceData:
                 DestinationPath: "/resnet_10_model/"
-                S3Uri: !Sub 's3://${S3BucketName}/ml_resource/${MLResourceName}'
-                OwnerSetting: 
-                    GroupOwner: "1001"
-                    GroupPermission: "rw"
-      Name: deepstream-model-resource-definition
-
+                S3Uri: !Sub 's3://${S3BucketName}/model/${MLResourceName}'
+          - Id: ResourceId2
+            Name: nvhost-ctrl
+            ResourceDataContainer:
+              LocalDeviceResourceData:
+                SourcePath: /dev/nvhost-ctrl
+          - Id: ResourceId3
+            Name: nvhost-gpu
+            ResourceDataContainer:
+              LocalDeviceResourceData:
+                SourcePath: /dev/nvhost-gpu
+          - Id: ResourceId4
+            Name: nvhost-ctrl-gpu
+            ResourceDataContainer:
+              LocalDeviceResourceData:
+                SourcePath: /dev/nvhost-ctrl-gpu
+          - Id: ResourceId5
+            Name: nvhost-dbg-gpu
+            ResourceDataContainer:
+              LocalDeviceResourceData:
+                SourcePath: /dev/nvhost-dbg-gpu
+          - Id: ResourceId6
+            Name: nvhost-prof-gpu
+            ResourceDataContainer:
+              LocalDeviceResourceData:
+                SourcePath: /dev/nvhost-prof-gpu
+          - Id: ResourceId7
+            Name: nvmap
+            ResourceDataContainer:
+              LocalDeviceResourceData:
+                SourcePath: /dev/nvmap
+          - Id: ResourceId8
+            Name: nvhost-vic
+            ResourceDataContainer:
+              LocalDeviceResourceData:
+                SourcePath: /dev/nvhost-vic
+          - Id: ResourceId9
+            Name: nvhost-as-gpu
+            ResourceDataContainer:
+              LocalDeviceResourceData:
+                SourcePath: /dev/nvhost-as-gpu
+          - Id: ResourceId10
+            Name: mem
+            ResourceDataContainer:
+              LocalDeviceResourceData:
+                SourcePath: /dev/mem
+          - Id: ResourceId11
+            Name: tegra_dc_ctrl
+            ResourceDataContainer:
+              LocalDeviceResourceData:
+                SourcePath: /dev/tegra_dc_ctrl
+          - Id: ResourceId12
+            Name: nvhost-msenc
+            ResourceDataContainer:
+              LocalDeviceResourceData:
+                SourcePath: /dev/nvhost-msenc
+          - Id: ResourceId13
+            Name: nvhost-nvdec
+            ResourceDataContainer:
+              LocalDeviceResourceData:
+                SourcePath: /dev/nvhost-nvdec
 
   LoggerDefinition:
     Type: 'AWS::Greengrass::LoggerDefinition'
