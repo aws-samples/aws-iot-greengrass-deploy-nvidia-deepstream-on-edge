@@ -77,8 +77,8 @@ echo sudo wget -O /greengrass/certs/privateKey.private.key \"$(aws s3 presign s3
 echo sudo wget -O /greengrass/config/config.json \"$(aws s3 presign s3://$S3_BUCKET/$GG_THING_GROUP_NAME/config/config.json --expires-in 604800 $AWS_ARGS)\" >> ../formation_cf_script/install_greengrass.sh
 
 # Certs generated for DeepStream app to connect to IoT or Greengrass
-echo sudo wget -O /greengrass/certs/certificatePem.cert.pem \"$(aws s3 presign s3://$S3_BUCKET/$DS_THING_GROUP_NAME/certs/certificatePem.cert.pem --expires-in 604800 $AWS_ARGS)\" > ../output.txt
-echo sudo wget -O /greengrass/certs/privateKey.private.key \"$(aws s3 presign s3://$S3_BUCKET/$DS_THING_GROUP_NAME/certs/privateKey.private.key --expires-in 604800 $AWS_ARGS)\" >> ../output.txt
+echo sudo wget -O /opt/nvidia/deepstream/deepstream-5.0/sources/libs/aws_protocol_adaptor/device_client/certs/certificatePem.cert.pem \"$(aws s3 presign s3://$S3_BUCKET/$DS_THING_GROUP_NAME/certs/certificatePem.cert.pem --expires-in 604800 $AWS_ARGS)\" > ../output.txt
+echo sudo wget -O /opt/nvidia/deepstream/deepstream-5.0/sources/libs/aws_protocol_adaptor/device_client/certs/privateKey.private.key \"$(aws s3 presign s3://$S3_BUCKET/$DS_THING_GROUP_NAME/certs/privateKey.private.key --expires-in 604800 $AWS_ARGS)\" >> ../output.txt
 
 # Environmental variable
 echo S3_BUCKET=\"$S3_BUCKET\" >> ../deploy.env
