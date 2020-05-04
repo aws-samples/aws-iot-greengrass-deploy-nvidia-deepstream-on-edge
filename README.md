@@ -15,17 +15,23 @@ Please follow the steps below to go through the Cloudformation Example:
 
 
 ## Part 1: Create things on AWS IoT
-### Step 1: Configure environment
+### Step 1: Clone repo and configure environment
 If you have not done so, configure your AWS CLI with a profile linked to your account.
 ```
 aws configure --profile ANY_NAME_YOU_LIKE
 ```
-After you have your profile ready, please edit deploy.env file to replace my_test_account to ANY_NAME_YOU_LIKE. You can also edit AWS_REGION and ENVIRONMENT.
 
-Run the following command after you have modified deploy.env with your aws profile name:
+Next, please clone this repo onto any PATH onto your machine. 
+```
+git clone https://github.com/aws-samples/aws-iot-greengrass-deploy-nvidia-deepstream-on-edge.git
+cd aws-iot-greengrass-deploy-nvidia-deepstream-on-edge
+```
+
+Once you successfully cloned this repo, please edit deploy.env file to replace <ANY_NAME_YOU_LIKE> to the profile name you just created above. You can also edit AWS_REGION and ENVIRONMENT. Run the following command after you have modified deploy.env with your aws profile name:
 ```
 source deploy.env
 ```
+
 Then, we are going to use the contents in provisioning_cf_script folder.
 ```
 cd provisioning_cf_script
@@ -71,7 +77,7 @@ aws s3 cp ./model.zip s3://$S3_BUCKET/model/model.zip --profile $AWS_PROFILE
 ### Step 6: Prepare DeepStream Application to be deployed
 Once we upload the model, we also need to prepare a DeepStream package to be deployed with Greengrass. We are going to use DeepStream sample app on your Jetson device for this demonstration:
 ```
-scp <YOUR_JETSON_IP>:<ABSOLUTE_DEEPSTREAM_PATH>/sources/apps/sample_apps/deepstream-app/deepstream-app $GG_DEPLOYMENT_HOME/formation_cf_script/lambda_deepstream_app/
+scp <YOUR_JETSON_USERNAME>@<YOUR_JETSON_IP>:<ABSOLUTE_DEEPSTREAM_PATH>/sources/apps/sample_apps/deepstream-app/deepstream-app $GG_DEPLOYMENT_HOME/formation_cf_script/lambda_deepstream_app/
 ```
 
 ### Step 7: Prepare corresponding configuration files for DeepStream Application
@@ -83,6 +89,7 @@ cd $GG_DEPLOYMENT_HOME/formation_cf_script/lambda_deepstream_app
 sed -i '.tmp' -e 's|model-engine-file|#model-engine-file|g' config_infer_primary_nano.txt
 sed -i '.tmp' -e 's|../../models/Primary_Detector_Nano|/resnet_10_model|g' config_infer_primary_nano.txt
 sed -i '.tmp' -e 's|model-engine-file|#model-engine-file|g' source1_usb_dec_infer_resnet_int8.txt
+mv config_infer_primary_nano.txt config_infer_primary.txt 
 rm *.tmp
 ```
 
@@ -152,6 +159,7 @@ cp -r aws-greengrass-core-sdk-python/greengrasssdk $GG_DEPLOYMENT_HOME/formation
 ### Step 11: Form Greengrass group with Cloudformation template
 Run the scripts:
 ```
+cd $GG_DEPLOYMENT_HOME/formation_cf_script
 . deploy.sh
 ```
 After script runs successfully, you should be able to observe on AWS console a Greengrass group ready to be deployed. And you can click from AWS console to do a deployment on the right uppper corner.
@@ -164,6 +172,9 @@ If the deployment status shows and yellow label and says "pending", that means t
 ### Step 12: Set up device
 Take out your jetson device, and install Greengrass by running on your Jetson device install_greengrass.sh script we have prepared for you. In order to copy this script to your Jetson device first, you can either use scp to copy install_greengrass.sh to your Jetson device or upload it somewhere to be downloaded from your Jetson device. And then run
 ```
+scp $GG_DEPLOYMENT_HOME/formation_cf_script/install_greengrass.sh <YOUR_JETSON_USERNAME>@<YOUR_JETSON_IP>:~/Downloads
+ssh <YOUR_JETSON_IP>
+cd ~/Downloads
 sudo sh install_greengrass.sh
 ```
 This script will automatically download and install Greengrass from the following page:
@@ -173,7 +184,7 @@ It will also automatically retrieve the certificates and Greengrass configuratio
 You should now have all the resources needed to run DeepStream Greengrass, so we can start Greengrass. You can now run the following script, and observe the inference result on the sink we just configured.
 ```
 cd /greengrass/ggc/core
-./greengrass start
+sudo ./greengrassd start
 ```
 ### Part 4 troubleshooting
 If your inference results are not outputed correctly, you can read Greengrass runtime logs to figure out why. Please navigate, on your Jetson device, to the following directory:
