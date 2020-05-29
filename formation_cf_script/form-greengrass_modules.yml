@@ -29,6 +29,8 @@ Parameters:
 Resources:
   GreengrassGroup:
     Type: AWS::Greengrass::Group
+    DependsOn:
+      - GreengrassResourceRole
     Properties:
       Name: !Ref CoreName
       RoleArn: !GetAtt GreengrassResourceRole.Arn
