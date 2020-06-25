@@ -67,8 +67,8 @@ else
 		--template-file ./form-greengrass_modules-packaged.yaml \
 		--stack-name $GGDP_STACK_NAME \
 		--parameter-overrides \
-			ParameterKey=CoreName,ParameterValue=$GG_THING_GROUP_NAME \
-			ParameterKey=S3BucketName,ParameterValue=$S3_BUCKET \
-			ParameterKey=MLResourceName,ParameterValue=$ML_RESOURCE_NAME \
+			CoreName=$GG_THING_GROUP_NAME \
+			S3BucketName=$S3_BUCKET \
+			MLResourceName=$ML_RESOURCE_NAME \
 		--capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND $AWS_ARGS
 fi

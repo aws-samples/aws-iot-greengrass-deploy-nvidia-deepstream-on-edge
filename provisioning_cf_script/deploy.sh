@@ -17,6 +17,7 @@ if [[ -z "$ENVIRONMENT" ]]; then
 fi
 echo "Using Environment $ENVIRONMENT"
 
+
 # define aws profile used as --profle YOUR_ACCOUNT
 if [ -z "$AWS_PROFILE" ]; then
 	echo "Environment variable not specified. Using aws configure without a profile."
@@ -42,7 +43,13 @@ then
 	echo "Bucket exists: $S3_BUCKET, using existing bucket."
 else
 	echo "Bucket does not exist, creating new bucket."
-	aws s3api create-bucket --bucket "$S3_BUCKET" --create-bucket-configuration LocationConstraint="$AWS_REGION" $AWS_ARGS;  
+	if [ $AWS_REGION == "us-east-1" ];
+	then
+		echo "using us-east-1"
+		aws s3api create-bucket --bucket "$S3_BUCKET" $AWS_ARGS;
+	else
+	   aws s3api create-bucket --bucket "$S3_BUCKET" --create-bucket-configuration LocationConstraint="$AWS_REGION" $AWS_ARGS;  
+        fi
 fi
 
 # Decide whether to create new thing for this deployment
@@ -65,7 +72,7 @@ then
 		--parameter-overrides \
 			ParameterKey=CoreName,ParameterValue=$GG_THING_GROUP_NAME \
 			ParameterKey=DeepstreamAppThingName,ParameterValue=$DS_THING_GROUP_NAME \
-			ParameterKey=S3BucketName,ParameterValue=$S3_BUCKET \
+			S3BucketName=$S3_BUCKET \
 		--capabilities CAPABILITY_IAM CAPABILITY_AUTO_EXPAND $AWS_ARGS
 else
 	echo "The thing name already exist, please modify deploy.env, source it, and try this script again."

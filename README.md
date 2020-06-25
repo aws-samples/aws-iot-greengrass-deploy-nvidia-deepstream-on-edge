@@ -74,22 +74,41 @@ cd $GG_DEPLOYMENT_HOME/deepstream-source/deepstream_sdk_<VERSION>_jetson/samples
 zip model.zip *
 aws s3 cp ./model.zip s3://$S3_BUCKET/model/model.zip --profile $AWS_PROFILE
 ```
+
+### Step 5.5: Install DeepStream onto Jetson (If not installed)
+If you do not have DeepStream installed, such as running a Jetson Nano SD JetPack 4.4 Image, copy the DeepStream SDK to your device:
+```
+scp <DOWNLOAD_PATH>/deepstream_sdk_<VERSION>_jetson.tbz2 <YOUR_JETSON_USERNAME>@<YOUR_JETSON_IP>:/home/<USER_HOME>
+
+```
+Now ssh do your Jetson device and install the SDK
+```
+cd /
+sudo tar xpvf <DOWNLOAD_PATH>/deepstream_sdk_<VERSION>_jetson.tbz2
+```
 ### Step 6: Prepare DeepStream Application to be deployed
 Once we upload the model, we also need to prepare a DeepStream package to be deployed with Greengrass. We are going to use DeepStream sample app on your Jetson device for this demonstration:
 ```
-scp <YOUR_JETSON_USERNAME>@<YOUR_JETSON_IP>:<ABSOLUTE_DEEPSTREAM_PATH>/sources/apps/sample_apps/deepstream-app/deepstream-app $GG_DEPLOYMENT_HOME/formation_cf_script/lambda_deepstream_app/
+scp <YOUR_JETSON_USERNAME>@<YOUR_JETSON_IP>:<ABSOLUTE_DEEPSTREAM_PATH>/sources/apps/sample_apps/deepstream-app/* $GG_DEPLOYMENT_HOME/formation_cf_script/lambda_deepstream_app/
 ```
 
 ### Step 7: Prepare corresponding configuration files for DeepStream Application
-Then we need to copy the configuration files to this sample application, and modify it with PLCEHOLDERS so we can locate the ML model correctly when the DeepStream app starts to run in Greengrass:
+Then we need to copy the configuration files to this sample application, and modify it with PLACEHOLDERS so we can locate the ML model correctly when the DeepStream app starts to run in Greengrass:
 ```
-cp $GG_DEPLOYMENT_HOME/deepstream-source/deepstream_sdk_<VERSION>_jetson/samples/configs/deepstream-app/config_infer_primary_nano.txt $GG_DEPLOYMENT_HOME/formation_cf_script/lambda_deepstream_app/
-cp $GG_DEPLOYMENT_HOME/deepstream-source/deepstream_sdk_<VERSION>_jetson/samples/configs/deepstream-app/source1_usb_dec_infer_resnet_int8.txt $GG_DEPLOYMENT_HOME/formation_cf_script/lambda_deepstream_app/
+cp $GG_DEPLOYMENT_HOME/deepstream-source/opt/nvidia/deepstream/deepstream-<VERSION>/samples/configs/deepstream-app/config_infer_primary_nano.txt $GG_DEPLOYMENT_HOME/formation_cf_script/lambda_deepstream_app/
+cp $GG_DEPLOYMENT_HOME/deepstream-source/opt/nvidia/deepstream/deepstream-<VERSION>/samples/configs/deepstream-app/source1_usb_dec_infer_resnet_int8.txt $GG_DEPLOYMENT_HOME/formation_cf_script/lambda_deepstream_app/
 cd $GG_DEPLOYMENT_HOME/formation_cf_script/lambda_deepstream_app
+### On MacOS/BSD
 sed -i '.tmp' -e 's|model-engine-file|#model-engine-file|g' config_infer_primary_nano.txt
 sed -i '.tmp' -e 's|../../models/Primary_Detector_Nano|/resnet_10_model|g' config_infer_primary_nano.txt
 sed -i '.tmp' -e 's|model-engine-file|#model-engine-file|g' source1_usb_dec_infer_resnet_int8.txt
+### On Ubuntu/Debian
+sed -i -e 's|model-engine-file|#model-engine-file|g' config_infer_primary_nano.txt
+sed -i -e 's|../../models/Primary_Detector_Nano|/resnet_10_model|g' config_infer_primary_nano.txt
+sed -i -e 's|model-engine-file|#model-engine-file|g' source1_usb_dec_infer_resnet_int8.txt
+
 mv config_infer_primary_nano.txt config_infer_primary.txt 
+## Only needed on MacOS/BSD
 rm *.tmp
 ```
 
