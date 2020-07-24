@@ -14,16 +14,16 @@ Please follow the steps below to go through the Cloudformation Example:
    - To install AWS SAM CLI: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html
 
 
-## Part 1: Create things on AWS IoT
+## Part 1: Create things on AWS IoT (Your PC)
 ### Step 1: Clone repo and configure environment
 If you have not done so, configure your AWS CLI with a profile linked to your account.
 ```
 aws configure --profile ANY_NAME_YOU_LIKE
 ```
 
-Next, please clone this repo onto any PATH onto your machine. 
+Next, please clone this repo onto any PATH onto your machine.
 ```
-git clone https://github.com/aws-samples/aws-iot-greengrass-deploy-nvidia-deepstream-on-edge.git
+git clone https://github.com/rvanderwerf/aws-iot-greengrass-deploy-nvidia-deepstream-on-edge.git
 cd aws-iot-greengrass-deploy-nvidia-deepstream-on-edge
 ```
 
@@ -38,14 +38,14 @@ cd provisioning_cf_script
 ```
 
 ### Step 2: Understand deploy.sh script
-Examine the deploy.sh file. This is the starting point of the cloud formation. 
-This bash script first creates a S3 bucket to store all of the relevant assets created in this repo. Then, it 
-calls provision-greengrass-cfn.yml cloudformation script with AWS SAM CLI toolset.
+Examine the deploy.sh file. This is the starting point of the cloud formation.
+This bash script first creates a S3 bucket to store all of the relevant assets created in this repo. Then, it
+calls provision-greengrass-cfn.yml CloudFormation script with AWS SAM CLI toolset.
 
-After Cloudformation runs successfully, we are going to generate several commands with S3 pre-signed links the provisioned certificates to be downloaded to Jetson devices (which only last for one day) into install_greengrass.sh file, which we are going to use later. The pre-signed links last for a week. If those links expire, you will have to manually run the last 5 lines in deploy.sh again and generate new links.
+After CloudFormation runs successfully, we are going to generate several commands with S3 pre-signed links the provisioned certificates to be downloaded to Jetson devices (which only last for one day) into install_greengrass.sh file, which we are going to use later. The pre-signed links last for a week. If those links expire, you will have to manually run the last 5 lines in deploy.sh again and generate new links.
 
 ### Step 3: Understand provision-greengrass.yml script
-This is a cloudformation script run by deploy.sh. This script internally calls a one-time lambda function to create two things:
+This is a CloudFormation script run by deploy.sh. This script internally calls a one-time lambda function to create two things:
 1. Greengrass Core
 2. DeepStream App
 And provision them with IoT certificates. Then download certificates to the designated S3 bucket <YOUR-S3-BUCKET> with name similar to "greengrass-deepstream-$AWS_ACCOUNT_ID-$ENVIRONMENT-assets".
@@ -59,7 +59,7 @@ After this, an output.txt file should be generated in this folder. Just leave it
 You can also navigate to AWS console, and see things just created in Manage -> Things.
 
 
-## Part 2: Simulate a deployment package
+## Part 2: Simulate a deployment package (Still on your PC)
 ### Step 5: Upload trained ML model to an S3 bucket
 We are going to simulate a package to be deployed from AWS cloud to Jetson device by using example applications and models from DeepStream SDK. We can first download DeepStream SDK for Jetson onto this machine from https://developer.nvidia.com/deepstream-download, and download the .tar version. After successful download, you can untar the package:
 
@@ -68,28 +68,47 @@ mkdir $GG_DEPLOYMENT_HOME/deepstream-source
 tar -xpvf <DOWNLOAD_PATH>/deepstream_sdk_<VERSION>_jetson.tbz2 -C $GG_DEPLOYMENT_HOME/deepstream-source
 ```
 
-Then, we are going to upload this model into the S3 bucket we created in Part1. 
+Then, we are going to upload this model into the S3 bucket we created in Part 1.
 ```
-cd $GG_DEPLOYMENT_HOME/deepstream-source/deepstream_sdk_<VERSION>_jetson/samples/models/Primary_Detector
+cd $GG_DEPLOYMENT_HOME/deepstream-source/opt/nvidia/deepstream/deepstream-5.0/samples/models/Primary_Detector
 zip model.zip *
 aws s3 cp ./model.zip s3://$S3_BUCKET/model/model.zip --profile $AWS_PROFILE
+```
+
+### Step 5.5: Install DeepStream onto Jetson (If not installed)
+If you do not have DeepStream installed, such as running a Jetson Nano SD JetPack 4.4 Image, copy the DeepStream SDK to your device:
+```
+scp <DOWNLOAD_PATH>/deepstream_sdk_<VERSION>_jetson.tbz2 <YOUR_JETSON_USERNAME>@<YOUR_JETSON_IP>:/home/<USER_HOME>
+
+```
+Now ssh do your Jetson device and install the SDK
+```
+cd /
+sudo tar xpvf <DOWNLOAD_PATH>/deepstream_sdk_<VERSION>_jetson.tbz2
 ```
 ### Step 6: Prepare DeepStream Application to be deployed
 Once we upload the model, we also need to prepare a DeepStream package to be deployed with Greengrass. We are going to use DeepStream sample app on your Jetson device for this demonstration:
 ```
-scp <YOUR_JETSON_USERNAME>@<YOUR_JETSON_IP>:<ABSOLUTE_DEEPSTREAM_PATH>/sources/apps/sample_apps/deepstream-app/deepstream-app $GG_DEPLOYMENT_HOME/formation_cf_script/lambda_deepstream_app/
+scp <YOUR_JETSON_USERNAME>@<YOUR_JETSON_IP>:<ABSOLUTE_DEEPSTREAM_PATH>/sources/apps/sample_apps/deepstream-app/* $GG_DEPLOYMENT_HOME/formation_cf_script/lambda_deepstream_app/
 ```
 
 ### Step 7: Prepare corresponding configuration files for DeepStream Application
-Then we need to copy the configuration files to this sample application, and modify it with PLCEHOLDERS so we can locate the ML model correctly when the DeepStream app starts to run in Greengrass:
+Then we need to copy the configuration files to this sample application, and modify it with PLACEHOLDERS so we can locate the ML model correctly when the DeepStream app starts to run in Greengrass:
 ```
-cp $GG_DEPLOYMENT_HOME/deepstream-source/deepstream_sdk_<VERSION>_jetson/samples/configs/deepstream-app/config_infer_primary_nano.txt $GG_DEPLOYMENT_HOME/formation_cf_script/lambda_deepstream_app/
-cp $GG_DEPLOYMENT_HOME/deepstream-source/deepstream_sdk_<VERSION>_jetson/samples/configs/deepstream-app/source1_usb_dec_infer_resnet_int8.txt $GG_DEPLOYMENT_HOME/formation_cf_script/lambda_deepstream_app/
+cp $GG_DEPLOYMENT_HOME/deepstream-source/opt/nvidia/deepstream/deepstream-5.0/samples/configs/deepstream-app/config_infer_primary_nano.txt $GG_DEPLOYMENT_HOME/formation_cf_script/lambda_deepstream_app/
+cp $GG_DEPLOYMENT_HOME/deepstream-source/opt/nvidia/deepstream/deepstream-5.0/samples/configs/deepstream-app/source1_usb_dec_infer_resnet_int8.txt $GG_DEPLOYMENT_HOME/formation_cf_script/lambda_deepstream_app/
 cd $GG_DEPLOYMENT_HOME/formation_cf_script/lambda_deepstream_app
+### On MacOS/BSD
 sed -i '.tmp' -e 's|model-engine-file|#model-engine-file|g' config_infer_primary_nano.txt
 sed -i '.tmp' -e 's|../../models/Primary_Detector_Nano|/resnet_10_model|g' config_infer_primary_nano.txt
 sed -i '.tmp' -e 's|model-engine-file|#model-engine-file|g' source1_usb_dec_infer_resnet_int8.txt
-mv config_infer_primary_nano.txt config_infer_primary.txt 
+### On Ubuntu/Debian
+sed -i -e 's|model-engine-file|#model-engine-file|g' config_infer_primary_nano.txt
+sed -i -e 's|../../models/Primary_Detector_Nano|/resnet_10_model|g' config_infer_primary_nano.txt
+sed -i -e 's|model-engine-file|#model-engine-file|g' source1_usb_dec_infer_resnet_int8.txt
+
+mv config_infer_primary_nano.txt config_infer_primary.txt
+## Only needed on MacOS/BSD
 rm *.tmp
 ```
 
@@ -142,7 +161,7 @@ The major function for this script is to create a greengrass group. And to this 
 - Greengrass Core: a thing with certificates that helps this Greengrass group to connect to cloud MQTT server securely
 - Local Lambda function: we use this lambda function to run Deepstream within as a subprocess. We make this function long-live, and run Greengrass container mode.
 - Greengrass Device: this is a separated thing with a different set of certs other than Greengrass Core. This set of certs is directly granted to Deepsteam app, so that Deepstream app can make secure connection with Greengrass Core, which is a local MQTT server. Please refer to "Extra Note" section for more information on this.
-- Greengrass MachineLearning Resource: in this case, this resource is the resnet-10 model we uploaded in S3 manually. It could also be coming directly from Sagemaker, or uploaded to S3 from other sources.
+- Greengrass Machine Learning Resource: in this case, this resource is the resnet-10 model we uploaded in S3 manually. It could also be coming directly from Sagemaker, or uploaded to S3 from other sources.
 - Other Greengrass Resource: we want to make sure the Greengrass container has all the hardware access within /dev/ repo on Jetson device to run this DeepStream app. The required resource might be different for applications, we need to make sure all of them are attached to the container. Otherwise, it would lead to inference failures.
 - Greengrass Subscriptions: we configure command messages to be published by cloud and subscribed by Deepstream app. And we configure performance update messages to be published from Deepstream app and subsribed by cloud. We can theoretically configure any publisher or subscribers based on our need, as long as they have the right credentials to communicate with MQTT server.
 
@@ -162,7 +181,7 @@ Run the scripts:
 cd $GG_DEPLOYMENT_HOME/formation_cf_script
 . deploy.sh
 ```
-After script runs successfully, you should be able to observe on AWS console a Greengrass group ready to be deployed. And you can click from AWS console to do a deployment on the right uppper corner.
+After script runs successfully, you should be able to observe on AWS console a Greengrass group ready to be deployed. And you could click from AWS console to do a deployment on the right upper corner, but don't click deploy yet until Greengrass is set up.
 
 ### Part 3 Troubleshooting
 If the deployment status shows and yellow label and says "pending", that means the Greengrass group has been successfully created. Otherwise, please click on the deployment failure entry and read the error log.
@@ -170,10 +189,10 @@ If the deployment status shows and yellow label and says "pending", that means t
 
 ## Part 4: Install and Start Greengrass on local Jetson device
 ### Step 12: Set up device
-Take out your jetson device, and install Greengrass by running on your Jetson device install_greengrass.sh script we have prepared for you. In order to copy this script to your Jetson device first, you can either use scp to copy install_greengrass.sh to your Jetson device or upload it somewhere to be downloaded from your Jetson device. And then run
+Take out your Jetson device, and install Greengrass by running on your Jetson device install_greengrass.sh script we have prepared for you. In order to copy this script to your Jetson device first, you can either use scp to copy install_greengrass.sh to your Jetson device or upload it somewhere to be downloaded from your Jetson device. And then run
 ```
 scp $GG_DEPLOYMENT_HOME/formation_cf_script/install_greengrass.sh <YOUR_JETSON_USERNAME>@<YOUR_JETSON_IP>:~/Downloads
-ssh <YOUR_JETSON_IP>
+ssh <YOUR_JETSON_USERNAME>@<YOUR_JETSON_IP>
 cd ~/Downloads
 sudo sh install_greengrass.sh
 ```
@@ -181,13 +200,22 @@ This script will automatically download and install Greengrass from the followin
 https://docs.aws.amazon.com/greengrass/latest/developerguide/what-is-gg.html#gg-core-download-tab
 It will also automatically retrieve the certificates and Greengrass configurations you have created in Part 1 from S3 bucket, and download them on your Jetson device.
 
-You should now have all the resources needed to run DeepStream Greengrass, so we can start Greengrass. You can now run the following script, and observe the inference result on the sink we just configured.
+
+You should now have all the resources needed to run DeepStream and Greengrass, so we can start Greengrass. You can now run the following script, and observe the inference result on the sink we just configured.
 ```
 cd /greengrass/ggc/core
 sudo ./greengrassd start
 ```
 ### Part 4 troubleshooting
-If your inference results are not outputed correctly, you can read Greengrass runtime logs to figure out why. Please navigate, on your Jetson device, to the following directory:
+
+If your bucket is not public, you will have noticed some errors during the GG setup. If that's the case, from your PC, copy the bucket contents to your local machine:
+
+cd $GG_DEPLOYMENT_HOME
+mkdir s3bucket
+aws s3 cp --recursive s3://greengrass-deepstream-XXXX-test-assets .
+Now copy the items in the install_greengrass.sh script from your local folder to the correct places on your Jetson device.
+
+If your inference results are not outputted correctly, you can read Greengrass runtime logs to figure out why. Please navigate, on your Jetson device, to the following directory:
 ```
 sudo su
 cd /greengrass/ggc/var/log/
@@ -201,7 +229,7 @@ For Lambda function specific logs, you can locate them in
 where xxxxxxxxxx is you AWS account number. All of the DeepStream operations logs should also be in this folder.
 
 ### Extra Note: Run DeepStream IoT Test Applications (test 4 or test 5)
-In this application, we also created a seperate set of certificates and a corresponding thing for DeepStream app to authenticate with both AWS IoT Core and this Greengrass group. In order to use AWS specific msg-broker in DeepStream, you need to follow this GitHub (but skip provisioning process, because certificates have already been created for you):
+In this application, we also created a separate set of certificates and a corresponding thing for DeepStream app to authenticate with both AWS IoT Core and this Greengrass group. In order to use AWS specific msg-broker in DeepStream, you need to follow this GitHub (but skip provisioning process, because certificates have already been created for you):
 https://github.com/awslabs/aws-iot-core-integration-with-nvidia-deepstream
 
 Please use the links in output.txt in this folder to download the certificates to the right folders.
@@ -210,4 +238,3 @@ Please use the links in output.txt in this folder to download the certificates t
 ## License
 
 This library is licensed under the MIT-0 License. See the LICENSE file.
-
